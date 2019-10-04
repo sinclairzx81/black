@@ -87,7 +87,7 @@ fn main() {
     // let geometry = Geometry::cube(1.0);
     while context.active() {
         // clear buffers
-        context.clear(0x000000);
+        context.clear(0x111111);
         depth.clear();
         
         // update uniforms

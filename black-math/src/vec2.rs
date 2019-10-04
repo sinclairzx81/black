@@ -26,8 +26,6 @@ THE SOFTWARE.
 
 ---------------------------------------------------------------------------*/
 
-use super::Vec3;
-use super::Vec4;
 use super::Mat4;
 use std::fmt::{Display, Error, Formatter};
 use std::ops::{Add, Div, Mul, Sub};
