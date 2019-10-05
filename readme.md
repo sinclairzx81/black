@@ -1,7 +1,7 @@
 
 <div align="center">
   <h1>Black</h1>
-  <p>A minimal software rasterizer for Rust</p>
+  <p>A software rasterizer for Rust</p>
   <img src="./models/cube.png">
 </div>
 
