@@ -36,6 +36,7 @@ struct FragmentShader; impl FragmentProgram for FragmentShader {
     type Uniform = Uniform;
     type Varying = Varying;
     fn main(&self, uniform: &Uniform, varying: &Varying) -> Vec4 {
+        // return uniform.sampler.get(varying.uv.x, varying.uv.y);
         let e2p   = Vec3::normalize(&varying.position.xyz()) * -1.0;
         let l2p   = Vec3::normalize(&(varying.position.xyz() - uniform.light));
         let ldp   = Vec3::dot(&varying.normal, &l2p);
@@ -49,11 +50,11 @@ struct FragmentShader; impl FragmentProgram for FragmentShader {
         if ldp < 0.0 {
             Vec4::new(0.0, 0.0, 0.0, 1.0)
         } else {
-            color * specular // * Vec4::new(varying.normal.x, varying.normal.y, varying.normal.z, 1.0)
+            color * specular //  * Vec4::new(varying.normal.x, varying.normal.y, varying.normal.z, 1.0)
         }
     }
 }
-
+//  clipping - https://en.wikipedia.org/wiki/Cohen%E2%80%93Sutherland_algorithm
 fn main() {
     
     let pixel_size  = 1;
@@ -91,17 +92,16 @@ fn main() {
         depth.clear();
         
         // update uniforms
-        uniform.matrix = Mat4::rotation_y(time);// * Mat4::rotation_x(time);
         uniform.light.x = f32::cos(time * 4.2) * 10.0;
         uniform.light.z = f32::sin(time * 4.2) * 10.0;
         uniform.view =  Mat4::look_at(
-            &Vec3::new(f32::sin(time * 0.5) * 2.0, 2.25, f32::cos(time * 0.5) * 3.0),
-            &Vec3::new(0.0, -0.1, 0.0),
+            &Vec3::new(f32::sin(time * 0.5) * 2.1, 2.25, f32::cos(time * 0.5) * 3.0),
+            &Vec3::new(0.0, 0.25, 0.0),
             &Vec3::new(0.0, 1.0, 0.0),
         );
         
         // render triangles
-        for _ in 0..1 {
+        uniform.matrix = Mat4::translation(&Vec3::new(0.0, 0.0, 0.0));
         for n in (0..geometry.indices.len()).step_by(3) {
             let i0 = geometry.indices[n + 0];
             let i1 = geometry.indices[n + 1];
@@ -120,7 +120,8 @@ fn main() {
                 v2,
             );
         }
-        }
+
+
         context.present().unwrap();
         time = time + 0.01;
     }

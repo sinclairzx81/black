@@ -26,15 +26,15 @@ THE SOFTWARE.
 
 ---------------------------------------------------------------------------*/
 
-use black_math::Vec2;
+use black_math::{Vec2};
 use std::cmp::{max, min};
 use std::mem::swap;
 
 use super::DepthBuffer;
 use super::FragmentProgram;
-use super::VertexProgram;
 use super::Interpolate;
 use super::TargetBuffer;
+use super::VertexProgram;
 
 pub struct Raster;
 impl Raster {
@@ -55,9 +55,9 @@ impl Raster {
         TTargetBuffer:    TargetBuffer,
     {
         // compute half width and height.
-        let width       = target.width() as f32;
+        let width       = target.width()  as f32;
         let height      = target.height() as f32;
-        let half_width  = width * 0.5;
+        let half_width  = width  * 0.5;
         let half_height = height * 0.5;
 
         // setup vrs for this primitive.
@@ -73,46 +73,45 @@ impl Raster {
         // prevent z less than 0.0 errors, discard the triangle.
         if position_0.z < 0.0 || position_1.z < 0.0 || position_2.z < 0.0 {
             // todo: implement frustum clipping
-            return
+            return;
         }
 
         // calculate positions in clip space.
         let clippos_0 = Vec2::new(
-            f32::floor(((position_0.x / position_0.w) * width) + half_width),
-            f32::floor(((-position_0.y / position_0.w) * height) + half_height),
+            ((position_0.x  / position_0.w) * width) + half_width,
+            ((-position_0.y / position_0.w) * height) + half_height,
         );
         let clippos_1 = Vec2::new(
-            f32::floor(((position_1.x / position_1.w) * width) + half_width),
-            f32::floor(((-position_1.y / position_1.w) * height) + half_height),
+            ((position_1.x  / position_1.w) * width) + half_width,
+            ((-position_1.y / position_1.w) * height) + half_height,
         );
         let clippos_2 = Vec2::new(
-            f32::floor(((position_2.x / position_2.w) * width) + half_width),
-            f32::floor(((-position_2.y / position_2.w) * height) + half_height),
+            ((position_2.x  / position_2.w) * width) + half_width,
+            ((-position_2.y / position_2.w) * height) + half_height,
         );
 
         // run fragment processor
-        if Self::edge(&clippos_0, &clippos_1, &clippos_2) >= 0.0  {
-            Self::run_fragment(
+        if Self::edge(&clippos_0, &clippos_1, &clippos_2) >= 0.0 {
+            Self::draw_triangle(
                 fragment,
                 depth,
                 target,
                 uniform,
-                &Interpolate::correct(&varying_0, &position_0.w),
-                &Interpolate::correct(&varying_1, &position_1.w),
-                &Interpolate::correct(&varying_2, &position_2.w),
+                &Interpolate::correct(&varying_0, &position_0.z),
+                &Interpolate::correct(&varying_1, &position_1.z),
+                &Interpolate::correct(&varying_2, &position_2.z),
                 &clippos_0,
                 &clippos_1,
                 &clippos_2,
-                &(1.0 / position_0.w),
-                &(1.0 / position_1.w),
-                &(1.0 / position_2.w),
+                &(1.0 / position_0.z),
+                &(1.0 / position_1.z),
+                &(1.0 / position_2.z),
             );
         }
     }
 
-    /// Runs a fragment shader rasterization pass for this triangle.
     #[inline(always)]
-    fn run_fragment<TTargetBuffer, TFragmentProgram, TVarying, TUniform>(
+    fn draw_triangle<TTargetBuffer, TFragmentProgram, TVarying, TUniform>(
         fragment:      &TFragmentProgram,
         depth:         &mut DepthBuffer,
         target:        &mut TTargetBuffer,
@@ -131,220 +130,185 @@ impl Raster {
         TVarying:         Interpolate,
         TTargetBuffer:    TargetBuffer,
     {
-        // clone and sort vertices
-        let mut ordered_position_0 = clippos_0.clone();
-        let mut ordered_position_1 = clippos_1.clone();
-        let mut ordered_position_2 = clippos_2.clone();
+        // clone clippos for sorting.
+        let mut ordered_0 = clippos_0.clone();
+        let mut ordered_1 = clippos_1.clone();
+        let mut ordered_2 = clippos_2.clone();
 
-        // order the positions in y-descending
-        if ordered_position_0.y > ordered_position_1.y {
-            swap(&mut ordered_position_0, &mut ordered_position_1);
+        // sort ordered y-descending.
+        if ordered_0.y > ordered_1.y {
+            swap(&mut ordered_0, &mut ordered_1);
         }
-        if ordered_position_1.y > ordered_position_2.y {
-            swap(&mut ordered_position_1, &mut ordered_position_2);
+        if ordered_1.y > ordered_2.y {
+            swap(&mut ordered_1, &mut ordered_2);
         }
-        if ordered_position_0.y > ordered_position_1.y {
-            swap(&mut ordered_position_0, &mut ordered_position_1);
+        if ordered_0.y > ordered_1.y {
+            swap(&mut ordered_0, &mut ordered_1);
         }
 
-        if ordered_position_1.y == ordered_position_2.y {
-            Self::render_bottom_flat_triangle(
-                fragment,
-                depth,
-                target,
-                uniform,
-                &ordered_position_0,
-                &ordered_position_1,
-                &ordered_position_2,
-                varying_0,
-                varying_1,
-                varying_2,
-                clippos_0,
-                clippos_1,
-                clippos_2,
-                corrected_z_0,
-                corrected_z_1,
-                corrected_z_2,
-            );
-        } else if ordered_position_0.y == ordered_position_1.y {
-            Self::render_top_flat_triangle(
-                fragment,
-                depth,
-                target,
-                uniform,
-                &ordered_position_0,
-                &ordered_position_1,
-                &ordered_position_2,
-                varying_0,
-                varying_1,
-                varying_2,
-                clippos_0,
-                clippos_1,
-                clippos_2,
-                corrected_z_0,
-                corrected_z_1,
-                corrected_z_2,
-            );
+        // calculate slopes for the given triangle types.
+        //       P0
+        //       /|
+        //      / | 
+        //     /  |
+        //    /   |
+        // P1 \   | 
+        //     \  |
+        //      \ |
+        //       \|
+        //       P2
+        let slope_0 = if ordered_1.y - ordered_0.y > 0.0 {
+            (ordered_1.x - ordered_0.x) / (ordered_1.y - ordered_0.y)
         } else {
+            0.0
+        };
+        //  P0
+        //  |\
+        //  | \
+        //  |  \
+        //  |   \
+        //  |   / P1
+        //  |  /
+        //  | /
+        //  |/
+        //  P2
+        let slope_1 = if ordered_2.y - ordered_0.y > 0.0 {
+            (ordered_2.x - ordered_0.x) / (ordered_2.y - ordered_0.y)
+        } else {
+            0.0
+        };
 
-            let ordered_position_3 = Vec2::new(
-                (ordered_position_0.x
-                    + ((ordered_position_1.y - ordered_position_0.y)
-                        / (ordered_position_2.y - ordered_position_0.y))
-                        * (ordered_position_2.x - ordered_position_0.x)) as i32
-                    as f32,
-                ordered_position_1.y,
-            );
-
-            Self::render_bottom_flat_triangle(
-                fragment,
-                depth,
-                target,
-                uniform,
-                &ordered_position_0,
-                &ordered_position_1,
-                &ordered_position_3,
-                varying_0,
-                varying_1,
-                varying_2,
-                clippos_0,
-                clippos_1,
-                clippos_2,
-                corrected_z_0,
-                corrected_z_1,
-                corrected_z_2,
-            );
-            Self::render_top_flat_triangle(
-                fragment,
-                depth,
-                target,
-                uniform,
-                &ordered_position_1,
-                &ordered_position_3,
-                &ordered_position_2,
-                varying_0,
-                varying_1,
-                varying_2,
-                clippos_0,
-                clippos_1,
-                clippos_2,
-                corrected_z_0,
-                corrected_z_1,
-                corrected_z_2,
-            );
+        // draw scanlines
+        if slope_0 > slope_1 {
+            for y in ordered_0.y as i32..=ordered_2.y as i32 {
+                if (y as f32) < ordered_1.y {
+                    let (min_x, max_x) = Self::calculate_x_scan_range(
+                        y, 
+                        &ordered_0,
+                        &ordered_2,
+                        &ordered_0,
+                        &ordered_1,
+                    );
+                    Self::draw_line(
+                        fragment,
+                        depth,
+                        target,
+                        uniform,
+                        &clippos_0,
+                        &clippos_1,
+                        &clippos_2,
+                        &varying_0,
+                        &varying_1,
+                        &varying_2,
+                        &corrected_z_0,
+                        &corrected_z_1,
+                        &corrected_z_2,
+                        min_x,
+                        max_x,
+                        y,
+                    )
+                } else {
+                    let (min_x, max_x) = Self::calculate_x_scan_range(
+                        y, 
+                        &ordered_0,
+                        &ordered_2,
+                        &ordered_1,
+                        &ordered_2,
+                    );
+                    Self::draw_line(
+                        fragment,
+                        depth,
+                        target,
+                        uniform,
+                        &clippos_0,
+                        &clippos_1,
+                        &clippos_2,
+                        &varying_0,
+                        &varying_1,
+                        &varying_2,
+                        &corrected_z_0,
+                        &corrected_z_1,
+                        &corrected_z_2,
+                        min_x,
+                        max_x,
+                        y,
+                    )
+                }
+            }
+        } else {
+            for y in ordered_0.y as i32 ..= ordered_2.y as i32 {
+                if (y as f32) < ordered_1.y {
+                   let (min_x, max_x) = Self::calculate_x_scan_range(
+                        y, 
+                        &ordered_0,
+                        &ordered_1,
+                        &ordered_0,
+                        &ordered_2,
+                    );
+                    Self::draw_line(
+                        fragment,
+                        depth,
+                        target,
+                        uniform,
+                        &clippos_0,
+                        &clippos_1,
+                        &clippos_2,
+                        &varying_0,
+                        &varying_1,
+                        &varying_2,
+                        &corrected_z_0,
+                        &corrected_z_1,
+                        &corrected_z_2,
+                        min_x,
+                        max_x,
+                        y,
+                    )
+                } else {
+                    let (min_x, max_x) = Self::calculate_x_scan_range(
+                        y, 
+                        &ordered_1,
+                        &ordered_2,
+                        &ordered_0,
+                        &ordered_2,
+                    );
+                    Self::draw_line(
+                        fragment,
+                        depth,
+                        target,
+                        uniform,
+                        &clippos_0,
+                        &clippos_1,
+                        &clippos_2,
+                        &varying_0,
+                        &varying_1,
+                        &varying_2,
+                        &corrected_z_0,
+                        &corrected_z_1,
+                        &corrected_z_2,
+                        min_x,
+                        max_x,
+                        y,
+                    )
+                }
+            }
         }
     }
 
     #[inline(always)]
-    fn render_bottom_flat_triangle<TTargetBuffer, TFragmentProgram, TVarying, TUniform>(
-        fragment:           &TFragmentProgram,
-        depth:              &mut DepthBuffer,
-        target:             &mut TTargetBuffer,
-        uniform:            &TUniform,
-        ordered_position_0: &Vec2,
-        ordered_position_1: &Vec2,
-        ordered_position_2: &Vec2,
-        varying_0:          &TVarying,
-        varying_1:          &TVarying,
-        varying_2:          &TVarying,
-        clippos_0:          &Vec2,
-        clippos_1:          &Vec2,
-        clippos_2:          &Vec2,
-        corrected_z_0:      &f32,
-        corrected_z_1:      &f32,
-        corrected_z_2:      &f32,
-    ) where
-        TFragmentProgram: FragmentProgram<Uniform = TUniform, Varying = TVarying>,
-        TVarying:         Interpolate,
-        TTargetBuffer:    TargetBuffer,
-    {
-        let slope_0 = (ordered_position_1.x - ordered_position_0.x)
-            / (ordered_position_1.y - ordered_position_0.y);
-
-        let slope_1 = (ordered_position_2.x - ordered_position_0.x)
-            / (ordered_position_2.y - ordered_position_0.y);
-
-        let mut cur_x0 = ordered_position_0.x;
-        let mut cur_x1 = ordered_position_0.x;
-
-        for cur_y0 in ordered_position_0.y as i32..=ordered_position_1.y as i32 {
-            Self::draw_line(
-                fragment,
-                depth,
-                target,
-                uniform,
-                varying_0,
-                varying_1,
-                varying_2,
-                clippos_0,
-                clippos_1,
-                clippos_2,
-                corrected_z_0,
-                corrected_z_1,
-                corrected_z_2,
-                cur_x0 as i32,
-                cur_x1 as i32,
-                cur_y0,
-            );
-            cur_x0 += slope_0;
-            cur_x1 += slope_1;
-        }
-    }
-
-    #[inline(always)]
-    fn render_top_flat_triangle<TTargetBuffer, TFragmentProgram, TVarying, TUniform>(
-        fragment:           &TFragmentProgram,
-        depth:              &mut DepthBuffer,
-        target:             &mut TTargetBuffer,
-        uniform:            &TUniform,
-        ordered_position_0: &Vec2,
-        ordered_position_1: &Vec2,
-        ordered_position_2: &Vec2,
-        varying_0:          &TVarying,
-        varying_1:          &TVarying,
-        varying_2:          &TVarying,
-        clippos_0:          &Vec2,
-        clippos_1:          &Vec2,
-        clippos_2:          &Vec2,
-        corrected_z_0:      &f32,
-        corrected_z_1:      &f32,
-        corrected_z_2:      &f32,
-    ) where
-        TFragmentProgram: FragmentProgram<Uniform = TUniform, Varying = TVarying>,
-        TVarying:         Interpolate,
-        TTargetBuffer:    TargetBuffer,
-    {
-        let slope_0 = (ordered_position_2.x - ordered_position_0.x)
-            / (ordered_position_2.y - ordered_position_0.y);
-
-        let slope_1 = (ordered_position_2.x - ordered_position_1.x)
-            / (ordered_position_2.y - ordered_position_1.y);
-
-        let mut cur_x0 = ordered_position_2.x;
-        let mut cur_x1 = ordered_position_2.x;
-
-        for cur_y0 in (ordered_position_1.y as i32..=ordered_position_2.y as i32).rev() {
-            Self::draw_line(
-                fragment,
-                depth,
-                target,
-                uniform,
-                varying_0,
-                varying_1,
-                varying_2,
-                clippos_0,
-                clippos_1,
-                clippos_2,
-                corrected_z_0,
-                corrected_z_1,
-                corrected_z_2,
-                cur_x0 as i32,
-                cur_x1 as i32,
-                cur_y0,
-            );
-            cur_x0 -= slope_0;
-            cur_x1 -= slope_1;
-        }
+    fn calculate_x_scan_range(y: i32, ordered_0: &Vec2, ordered_1: &Vec2, ordered_2: &Vec2, ordered_3: &Vec2) -> (i32, i32) {
+        let gradient_0 = if ordered_0.y != ordered_1.y {
+            (y as f32 - ordered_0.y) / (ordered_1.y - ordered_0.y)
+        } else {
+            1.0
+        };
+        let gradient_1 = if ordered_2.y != ordered_3.y {
+            (y as f32 - ordered_2.y) / (ordered_3.y - ordered_2.y)
+        } else {
+            1.0
+        };
+        let min_x = ordered_0.x + (ordered_1.x - ordered_0.x) * Self::clamp(gradient_0, 0.0, 1.0);
+        let max_x = ordered_2.x + (ordered_3.x - ordered_2.x) * Self::clamp(gradient_1, 0.0, 1.0);
+        (min_x as i32, max_x as i32)
     }
 
     #[inline(always)]
@@ -353,42 +317,40 @@ impl Raster {
         depth:         &mut DepthBuffer,
         target:        &mut TTargetBuffer,
         uniform:       &TUniform,
-        varying_0:     &TVarying,
-        varying_1:     &TVarying,
-        varying_2:     &TVarying,
         clippos_0:     &Vec2,
         clippos_1:     &Vec2,
         clippos_2:     &Vec2,
+        varying_0:     &TVarying,
+        varying_1:     &TVarying,
+        varying_2:     &TVarying,
         corrected_z_0: &f32,
         corrected_z_1: &f32,
         corrected_z_2: &f32,
-        cur_x0:        i32,
-        cur_x1:        i32,
-        cur_y0:        i32,
+        min_x:          i32,
+        max_x:          i32,
+        y:              i32,
     ) where
         TFragmentProgram: FragmentProgram<Uniform = TUniform, Varying = TVarying>,
         TVarying:         Interpolate,
         TTargetBuffer:    TargetBuffer,
     {
-        // discard fragments outside the Y viewport
-        let height = target.height();
-        if cur_y0 < 0 || cur_y0 >= height {
+        // exit if outside viewport height.
+        if y < 0 || y >= target.height() {
             return;
         }
-
-        // discard fragments outside the X viewport
-        let width = target.width();
-        let minx = max(0, min(cur_x0, cur_x1));
-        let maxx = min(width - 1, max(cur_x0, cur_x1));
+        // min | max within viewport width.
+        let min_x = max(min_x, 0);
+        let max_x = min(max_x, target.width() - 1);
 
         // calculate edge value
         let edge = Self::edge(clippos_0, clippos_1, clippos_2);
 
-        // run scanline
-        for x in minx..=maxx {
-            let weight_0 = Self::edge(clippos_1, clippos_2, &Vec2::new(x as f32, cur_y0 as f32)) / edge;
-            let weight_1 = Self::edge(clippos_2, clippos_0, &Vec2::new(x as f32, cur_y0 as f32)) / edge;
-            let weight_2 = Self::edge(clippos_0, clippos_1, &Vec2::new(x as f32, cur_y0 as f32)) / edge;
+        for x in min_x..max_x {
+            // calculate weights
+            let pixel_coordinate = Vec2::new((x as f32) + 0.0, (y as f32) + 0.0);
+            let weight_0 = Self::edge(clippos_2, clippos_1, &pixel_coordinate) / edge;
+            let weight_1 = Self::edge(clippos_0, clippos_2, &pixel_coordinate) / edge;
+            let weight_2 = Self::edge(clippos_1, clippos_0, &pixel_coordinate) / edge;
 
             // calculate depth of fragment.
             let calculated_depth = 
@@ -397,9 +359,8 @@ impl Raster {
                 + (weight_2 * corrected_z_2);
 
             // check depth and discard, interpolate and render.
-            if calculated_depth > depth.get(x as usize, cur_y0 as usize) {
-                depth.set(x as usize, cur_y0 as usize, calculated_depth);
-
+            if calculated_depth < depth.get(x as usize, y as usize) {
+                depth.set(x as usize, y as usize, calculated_depth);
                 let varying = TVarying::interpolate(
                     varying_0,
                     varying_1,
@@ -409,11 +370,15 @@ impl Raster {
                     &weight_2,
                     &calculated_depth,
                 );
-                
                 let color = fragment.main(uniform, &varying);
-                target.set(x, cur_y0, color);
+                target.set(x, y, color);
             }
         }
+    }
+
+    #[inline(always)]
+    fn clamp(value: f32, min: f32, max: f32) -> f32 {
+        min.max(value.min(max))
     }
 
     #[inline(always)]

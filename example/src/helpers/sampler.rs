@@ -11,6 +11,12 @@ impl Sampler {
 
     #[inline(always)]
     pub fn get(&self, x: f32, y: f32) -> Vec4 {
+        let x = if x > 0.999 { 0.999 } else { x };
+        let y = if y > 0.999 { 0.999 } else { y };
+        
+        // let x = if x < 0.0 { 0.0 } else { x };
+        // let x = if x < 0.0 { 0.0 } else { x };
+        
         let x = (x * self.frequency) as usize;
         let y = (y * self.frequency) as usize;
         let total = x + y;

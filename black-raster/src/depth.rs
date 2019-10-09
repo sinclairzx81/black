@@ -40,7 +40,7 @@ impl DepthBuffer {
     #[inline(always)]
     pub fn clear(&mut self) {
         for n in 0..self.data.len() {
-            self.data[n] = std::f32::MIN;
+            self.data[n] = std::f32::MAX;
         }
     }
     #[inline(always)]

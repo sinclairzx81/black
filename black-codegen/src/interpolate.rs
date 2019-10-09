@@ -177,16 +177,14 @@ fn impl_interpolate_function(s: &StructMeta) -> quote::Tokens {
 #[allow(dead_code)]
 pub fn impl_interpolate(s: &StructMeta) -> quote::Tokens {
     let kind = quote::Ident::from(s.name.clone());
-    let new_function = impl_new_function(&s);
-    let correct_function = impl_correct_function(&s);
+    let new_function         = impl_new_function(&s);
+    let correct_function     = impl_correct_function(&s);
     let interpolate_function = impl_interpolate_function(&s);
-    let implementation = quote! {
+    quote! {
         impl Interpolate for #kind {
             #new_function
             #correct_function
             #interpolate_function
         }
-    };
-    // println!("{}", implementation);
-    implementation
+    }
 }
