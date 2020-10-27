@@ -93,9 +93,9 @@ impl Quaternion {
             let n5 = 1.0 / f32::sin(n4);
             n1 = f32::sin((1.0 - n2) * n4) * n5;
             n0 = if flag {
-                (-f32::sin(n2 * n4) * n5)
+                -f32::sin(n2 * n4) * n5
             } else {
-                (f32::sin(n2 * n4) * n5)
+                f32::sin(n2 * n4) * n5
             };
         }
         Quaternion::new(
