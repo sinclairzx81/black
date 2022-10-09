@@ -55,7 +55,7 @@ fn impl_new_function(s: &StructMeta) -> quote::Tokens {
                 #field_name: 0.0
             }
         }
-        _ => panic!(format!("Cannot interpolate type '{}'", field.kind)),
+        _ => panic!("Cannot interpolate type '{}'", field.kind),
     });
     let name = quote::Ident::from(s.name.clone());
     quote!(
@@ -107,7 +107,7 @@ fn impl_correct_function(s: &StructMeta) -> quote::Tokens {
                 #field_name: v.#field_name / w
             }
         }
-        _ => panic!(format!("Cannot interpolate type '{}'", field.kind)),
+        _ => panic!("Cannot interpolate type '{}'", field.kind),
     });
     let name = quote::Ident::from(s.name.clone());
     quote!(
@@ -160,7 +160,7 @@ fn impl_interpolate_function(s: &StructMeta) -> quote::Tokens {
                     #field_name: ((w0 * v0.#field_name) + (w1 * v1.#field_name) + (w2 * v2.#field_name)) / w
                 }
             },
-            _ => panic!(format!("Cannot interpolate type '{}'", field.kind))
+            _ => panic!("Cannot interpolate type '{}'", field.kind)
         }
     });
     let name = quote::Ident::from(s.name.clone());
