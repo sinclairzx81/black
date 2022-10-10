@@ -51,11 +51,9 @@ pub fn read_struct_metadata(ast: &syn::DeriveInput) -> StructMeta {
                     match field.ty {
                         syn::Ty::Path(ref _opt, ref path) => {
                             let kind = path.segments[0].ident.to_string();
-                            result.fields.push({
-                                Field { name, kind }
-                            });
-                        },
-                        _ => panic!(format!("Unable to read field '{}'", name))
+                            result.fields.push(Field { name, kind });
+                        }
+                        _ => panic!("Unable to read field '{}'", name),
                     }
                 }
             },

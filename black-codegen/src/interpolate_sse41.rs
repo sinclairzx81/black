@@ -65,7 +65,7 @@ fn impl_new_function(s: &StructMeta) -> quote::Tokens {
                 #field_name: Vec2::new(0.0, 0.0)
             }
         }
-        _ => panic!(format!("Cannot interpolate type '{}'", field.kind)),
+        _ => panic!("Cannot interpolate type '{}'", field.kind),
     });
     let name = quote::Ident::from(s.name.clone());
     quote!(
@@ -131,7 +131,7 @@ fn impl_correct_function(s: &StructMeta) -> quote::Tokens {
                 }
             }
         }
-        _ => panic!(format!("Cannot interpolate type '{}'", field.kind)),
+        _ => panic!("Cannot interpolate type '{}'", field.kind),
     });
     let name = quote::Ident::from(s.name.clone());
     quote!(
@@ -254,7 +254,7 @@ fn impl_interpolate_function(s: &StructMeta) -> quote::Tokens {
                 }
             }
         }
-        _ => panic!(format!("Cannot interpolate type '{}'", field.kind)),
+        _ => panic!("Cannot interpolate type '{}'", field.kind),
     });
     let name = quote::Ident::from(s.name.clone());
     quote!(
